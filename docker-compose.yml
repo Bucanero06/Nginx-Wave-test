@@ -1,0 +1,63 @@
+#version: '3.10'
+version: '2.2'
+# sudo snap refresh docker --channel=latest/edge
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: .docker/nginx.dockerfile
+    restart: unless-stopped
+    networks:
+      - my-network
+    ports:
+      - ${NGINX_SERVICE_PORT}:${NGINX_SERVICE_PORT}
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:80" ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: .docker/dashboard.dockerfile
+    command: [ "wave", "run", "h2o_dashboard.dashboard", "--no-reload" ]
+    restart: unless-stopped
+    networks:
+      - my-network
+    environment:
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      H2O_WAVE_LISTEN: 0.0.0.0:10101
+      H2O_WAVE_ADDRESS: http://0.0.0.0:10101
+      H2O_WAVE_APP_ADDRESS: http://0.0.0.0:8000
+      H2O_WAVE_PING_INTERVAL: "50s"
+      # TODO
+      OKX_API_KEY: ${OKX_API_KEY}
+      OKX_SECRET_KEY: ${OKX_SECRET_KEY}
+      OKX_PASSPHRASE: ${OKX_PASSPHRASE}
+      OKX_SANDBOX_MODE: ${OKX_SANDBOX_MODE}
+
+    ports:
+      - "10101:10101"
+    healthcheck:
+      test: [ "CMD", "curl", "--fail", "http://localhost:10101" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    cpus: 0.5
+    mem_limit: 512m
+    mem_reservation: 256m
+
+networks:
+  my-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+
